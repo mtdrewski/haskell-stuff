@@ -41,7 +41,14 @@ maze (C x y)
   
 -- The state 
 
-data State = St Coord Direction
+data State = St Coord Direction (List Coord)
+
+initialBoxes :: List Coord
+initialBoxes = Entry (C 2 2) (Entry (C 3 3) (Entry (C (-1) 0) Empty))
+
+initialState :: State
+initialState = St (C (-2) (-3)) U initialBoxes
+
 
 -- Event handling
 
@@ -91,34 +98,50 @@ getAngle L = pi/2
 pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
-drawState :: State -> Picture
-drawState (St c dir) = atCoord c (drawPlayer dir) & pictureOfMaze
+--drawState :: State -> Picture
+--drawState (St c dir) = atCoord c (drawPlayer dir) & pictureOfMaze
 
--- The complete interaction
+-- The complete activity
 
+-- The general activity type
 
+data Activity world = 
+       Activity world 
+       (Event -> world -> world) 
+       (world -> Picture)
 
--- The general interaction type
+runActivity :: Activity s -> IO ()
+runActivity (Activity state0 handle draw) = activityOf state0 handle draw
 
+-- Resetable activities
 
--- Resetable interactions
-
+resetable :: Activity s -> Activity s
+resetable (Activity state0 handle draw)
+  = Activity state0 handle' draw
+  where handle' (KeyPress key) _ | key == "Esc" = state0
+        handle' e s = handle e s
 
 -- Start screen
+startScreen :: Picture
+startScreen = scaled 3 3 (lettering "Sokoban!")
 
+data SSState world = StartScreen | Running world
 
-
+withStartScreen :: Activity s -> Activity (SSState s)
+withStartScreen (Activity state0 handle draw)
+  = Activity state0' handle' draw'
+  where
+    state0' = StartScreen
+    handle' (KeyPress key) StartScreen = Running state0
+    handle' _              StartScreen = StartScreen
+    handle' e              (Running s) = Running (handle e s)
+    draw' StartScreen = startScreen
+    draw' (Running s) = draw s
 
 -- The main function
 
 
-
-
-
-startState :: State
-startState = St (C (-2) (-3)) U
-
-
+{-
 tryGoTo :: Coord -> Coord -> Coord
 tryGoTo from to
   | isOkToGo (maze to) = to
@@ -136,41 +159,8 @@ handleEvent (KeyPress key) (St c dir)
   | key == "Left"  = St (tryGoTo c (adjacentCoord L c)) L
   | key == "Down"  = St (tryGoTo c (adjacentCoord D c)) D
 handleEvent _ c = c
-
-
-
-
-startScreen :: Picture
-startScreen = scaled 3 3 (lettering "Sokoban!")
-
-data Activity world = Activity world (Event -> world -> world) (world -> Picture)
-
-resetable :: Activity s -> Activity s
-resetable (Activity state0 handle draw)
-  = Activity state0 handle' draw
-  where handle' (KeyPress key) _ | key == "Esc" = state0
-        handle' e s = handle e s
-
-data SSState world = StartScreen | Running world
-
-withStartScreen :: Activity s -> Activity (SSState s)
-withStartScreen (Activity state0 handle draw)
-  = Activity state0' handle' draw'
-  where
-    state0' = StartScreen
-    handle' (KeyPress key) StartScreen = Running state0
-    handle' _              StartScreen = StartScreen
-    handle' e              (Running s) = Running (handle e s)
-    draw' StartScreen = startScreen
-    draw' (Running s) = draw s
-
-runActivity :: Activity s -> IO ()
-runActivity (Activity state0 handle draw) = activityOf state0 handle draw
-
-exercise2 :: Activity State
-exercise2 = Activity startState handleEvent drawState
-
-
+-}
 
 main :: IO ()
-main = runActivity (resetable (withStartScreen exercise2))
+main = drawingOf (pictureOfBoxes initialBoxes)
+--main = runActivity (resetable (withStartScreen exercise2))
