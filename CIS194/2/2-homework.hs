@@ -28,8 +28,11 @@ draw21times something = go (-10)
     go n  = something n & go (n+1)
 
 data Coord = C Integer Integer
+atCoord :: Coord -> Picture -> Picture
+atCoord (C x y) pic = translated (fromIntegral x) (fromIntegral y) pic
+
 drawTileAt :: Integer -> Integer -> Picture
-drawTileAt r c = translated (fromIntegral r) (fromIntegral c) (drawTile (maze (C r c)))
+drawTileAt r c = atCoord(C r c) (drawTile (maze (C r c)))
 
 maze :: Coord -> Tile 
 maze (C x y)
@@ -41,9 +44,6 @@ maze (C x y)
   | otherwise                = Ground
 
 data Direction = R | U | L | D
-
-atCoord :: Coord -> Picture -> Picture
-atCoord (C x y) pic = translated (fromIntegral x) (fromIntegral y) pic
 
 adjacentCoord:: Direction -> Coord -> Coord
 adjacentCoord R (C x y) = C (x+1) y
