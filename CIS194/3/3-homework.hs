@@ -68,6 +68,16 @@ initialState = St (C (-2) (-3)) U initialBoxes
 
 -- Event handling
 
+isOkToGo :: Tile -> Bool
+isOkToGo Ground = True
+isOkToGo Storage = True
+isOkToGo _ = False
+
+tryGoTo :: Coord -> Coord -> Coord
+tryGoTo from to
+  | isOkToGo (maze to) = to
+  | otherwise = from
+
 handleEvent :: Event -> State -> State
 handleEvent (KeyPress key) (St c dir list)
   | key == "Right" = St (tryGoTo c (adjacentCoord R c)) R list
@@ -163,8 +173,5 @@ withStartScreen (Activity state0 handle draw)
     draw' (Running s) = draw s
 
 -- The main function
-
-
 main :: IO ()
-main = drawingOf (drawState initialState)
---main = runActivity (resetable (withStartScreen exercise2))
+main = runActivity (resetable (withStartScreen (Activity initialState handleEvent drawState)))
