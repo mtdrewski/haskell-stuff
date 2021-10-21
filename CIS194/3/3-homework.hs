@@ -12,6 +12,10 @@ combine :: List Picture -> Picture
 combine Empty = blank
 combine (Entry p ps) = p & combine ps
 
+allList :: List Bool -> Bool
+allList Empty = True
+allList (Entry b bs) = b && allList bs 
+
 -- Coordinates
 
 data Coord = C Integer Integer
@@ -27,8 +31,11 @@ adjacentCoord D (C x y) = C x (y-1)
 eqCoord::Coord ->Coord->Bool
 eqCoord (C x1 y1) (C x2 y2) = (x1==x2) && (y1==y2) 
 
--- The maze
+moveFromTo :: Coord -> Coord -> Coord -> Coord
+moveFromTo c1 c2 c | c1 `eqCoord` c = c2  
+                   | otherwise      = c
 
+-- The maze
 data Tile = Wall | Ground | Storage | Box | Player | Blank
 
 maze :: Coord -> Tile 
@@ -66,6 +73,15 @@ initialBoxes = go (-10) (-10)
 initialState :: State
 initialState = St (C (-2) (-3)) U initialBoxes
 
+isWon :: State -> Bool
+isWon (St _ _ boxList) = allList boolList 
+                         where boolList = mapList isOnStorage boxList
+                              
+isOnStorage :: Coord -> Bool
+isOnStorage c = case noBoxMaze c of
+                        Storage -> True
+                        _ -> False
+
 -- Event handling
 
 isOkToGo :: Tile -> Bool
@@ -73,18 +89,32 @@ isOkToGo Ground = True
 isOkToGo Storage = True
 isOkToGo _ = False
 
-tryGoTo :: Coord -> Coord -> Coord
-tryGoTo from to
-  | isOkToGo (maze to) = to
-  | otherwise = from
-
+tryGoTo :: State -> Direction -> State
+tryGoTo (St from _ boxList) dir
+    = case currentMaze to of
+      Box -> case currentMaze beyond of
+        Ground -> movedState
+        Storage -> movedState
+        _ -> didn'tMove
+      Ground -> movedState
+      Storage -> movedState
+      _ -> didn'tMove
+    where to = adjacentCoord dir from
+          beyond = adjacentCoord dir to
+          currentMaze = mazeWithBoxes boxList
+          movedBoxList = mapList (moveFromTo to beyond) boxList
+          movedState = St to dir movedBoxList
+          didn'tMove = St from dir boxList
+  
 handleEvent :: Event -> State -> State
-handleEvent (KeyPress key) (St c dir list)
-  | key == "Right" = St (tryGoTo c (adjacentCoord R c)) R list
-  | key == "Up"    = St (tryGoTo c (adjacentCoord U c)) U list
-  | key == "Left"  = St (tryGoTo c (adjacentCoord L c)) L list
-  | key == "Down"  = St (tryGoTo c (adjacentCoord D c)) D list
-handleEvent _ c = c
+handleEvent _ st
+  | isWon st == True = st
+handleEvent (KeyPress key) s
+  | key == "Right" = tryGoTo s R
+  | key == "Up"    = tryGoTo s U
+  | key == "Left"  = tryGoTo s L
+  | key == "Down"  = tryGoTo s D
+handleEvent _ st = st
 
 -- Drawing
 
@@ -131,19 +161,20 @@ getAngle L = pi/2
 pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
+endScreen :: State -> Picture
+endScreen st = case isWon st of
+                    True -> scaled 3 3 (lettering "You won!")
+                    False -> blank
+
 drawState :: State -> Picture
-drawState (St c dir initialBoxes) = atCoord c (drawPlayer dir) 
-                                  & pictureOfBoxes initialBoxes & pictureOfMaze
-
--- The complete activity
-
+drawState (St c dir initialBoxes) = endScreen (St c dir initialBoxes) & atCoord c (drawPlayer dir) 
+                                   & pictureOfBoxes initialBoxes & pictureOfMaze
 -- The general activity type
 
 data Activity world = 
        Activity world 
        (Event -> world -> world) 
        (world -> Picture)
-
 runActivity :: Activity s -> IO ()
 runActivity (Activity state0 handle draw) = activityOf state0 handle draw
 
@@ -158,6 +189,7 @@ resetable (Activity state0 handle draw)
 -- Start screen
 startScreen :: Picture
 startScreen = scaled 3 3 (lettering "Sokoban!")
+
 
 data SSState world = StartScreen | Running world
 
