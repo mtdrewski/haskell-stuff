@@ -90,7 +90,6 @@ isOkToGo :: Tile -> Bool
 isOkToGo Ground = True
 isOkToGo Storage = True
 isOkToGo _ = False
-
 <<<<<<< HEAD
 tryGoTo :: Coord -> Coord -> Coord
 tryGoTo from to
