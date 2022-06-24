@@ -68,6 +68,8 @@ initialState = St (C (-2) (-3)) U initialBoxes
 
 -- Event handling
 
+
+{-
 isOkToGo :: Tile -> Bool
 isOkToGo Ground = True
 isOkToGo Storage = True
@@ -77,14 +79,36 @@ tryGoTo :: Coord -> Coord -> Coord
 tryGoTo from to
   | isOkToGo (maze to) = to
   | otherwise = from
+-}
+
+tryGoTo :: State -> Direction -> State
+tryGoTo (St from _ bx) d
+  = case currentMaze to of
+      Box -> case currentMaze beyond of
+          Ground -> movedState
+          Storage -> movedState
+          _ -> didn'tMove
+      Ground -> movedState
+      Storage -> movedState
+      _ ->didn'tMove
+  where to          = adjacentCoord d from
+        beyond      = adjacentCoord d to
+        currentMaze = mazeWithBoxes bx 
+        movedState  = St to d movedBx
+        movedBx     = mapList (moveFromTo to beyond) bx
+        didn'tMove  = St from d bx -- Yes, ' may be part of an identifier
+  
+moveFromTo :: Coord -> Coord -> (Coord -> Coord)
+
+
 
 handleEvent :: Event -> State -> State
-handleEvent (KeyPress key) (St c dir list)
-  | key == "Right" = St (tryGoTo c (adjacentCoord R c)) R list
-  | key == "Up"    = St (tryGoTo c (adjacentCoord U c)) U list
-  | key == "Left"  = St (tryGoTo c (adjacentCoord L c)) L list
-  | key == "Down"  = St (tryGoTo c (adjacentCoord D c)) D list
-handleEvent _ c = c
+handleEvent (KeyPress key) s
+  | key == "Right" = tryGoTo s R 
+  | key == "Up"    = tryGoTo s U
+  | key == "Left"  = tryGoTo s L
+  | key == "Down"  = tryGoTo s D
+handleEvent _ s = s
 
 -- Drawing
 
